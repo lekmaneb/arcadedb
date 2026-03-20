@@ -1220,7 +1220,17 @@ public class LSMVectorIndex implements Index, IndexInternal {
                   vectorLocationSnapshot.put(vectorId, loc);
                   validVectorIds.add(vectorId);
                   preloadedVectors.put(vectorId, vts.createFloatVector(vector));
+                  validationSuccesses++;
+                } else {
+                  validationAllZeros++;
+                  skippedDeletedDocs++;
                 }
+              } else {
+                if (vector == null)
+                  validationNullVectors++;
+                else
+                  validationWrongDimensions++;
+                skippedDeletedDocs++;
               }
 
             } catch (final RecordNotFoundException e) {
@@ -1246,9 +1256,11 @@ public class LSMVectorIndex implements Index, IndexInternal {
       }
 
       if (skippedDeletedDocs > 0) {
+        final int deletedOrError = skippedDeletedDocs - validationNullVectors - validationWrongDimensions - validationAllZeros;
         LogManager.instance()
-            .log(this, Level.INFO, "Filtered out %d vectors with deleted/invalid documents during graph build",
-                skippedDeletedDocs);
+            .log(this, Level.INFO,
+                "Filtered out %d vectors during graph build (null=%d, wrongDimensions=%d, allZeros=%d, deletedOrError=%d)",
+                skippedDeletedDocs, validationNullVectors, validationWrongDimensions, validationAllZeros, deletedOrError);
       }
 
       // Use validated vector IDs instead of unfiltered ones
